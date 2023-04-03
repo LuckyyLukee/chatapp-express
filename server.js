@@ -5,7 +5,12 @@ import http from "http";
 import { Server } from "socket.io";
 
 import formatMessage from "./utils/messages.js";
-import { userJoin, getCurrentUser } from "./utils/users.js";
+import {
+  userJoin,
+  getCurrentUser,
+  userLeave,
+  getRoomUsers,
+} from "./utils/users.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -14,7 +19,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-const botName = "oliviertech";
+const botName = "Chatty";
 
 // set static folder
 app.use(express.static(path.join(__dirname, "public")));
@@ -35,6 +40,12 @@ io.on("connection", (socket) => {
         "message",
         formatMessage(botName, `${user.username} has joined chat`)
       );
+
+    // Send users and room info
+    io.to(user.room).emit("roomUsers", {
+      room: user.room,
+      users: getRoomUsers(user.room),
+    });
   });
 
   // listen for chatMessage
@@ -47,7 +58,20 @@ io.on("connection", (socket) => {
 
   //   Runs when clients disconnects
   socket.on("disconnect", () => {
-    io.emit("message", formatMessage(botName, "A User has left the chat"));
+    const user = userLeave(socket.id);
+    console.log(user);
+    if (user) {
+      io.to(user.room).emit(
+        "message",
+        formatMessage(botName, `${user.username} has left the chat`)
+      );
+
+      // Send users and room info
+      io.to(user.room).emit("roomUsers", {
+        room: user.room,
+        users: getRoomUsers(user.room),
+      });
+    }
   });
 });
 
